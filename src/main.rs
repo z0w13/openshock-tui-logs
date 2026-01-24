@@ -61,7 +61,7 @@ fn main() -> Result<()> {
         if Timestamp::now()
             .since(model.last_updated)?
             .total(Unit::Second)?
-            > 1.0
+            > 5.0
         {
             model = update(model, Message::UpdateLog(shocker_logs(&client)?));
         }
