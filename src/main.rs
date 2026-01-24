@@ -83,7 +83,7 @@ fn handle_key(key: event::KeyEvent) -> Option<Message> {
 }
 
 fn handle_event(model: &ViewModel) -> Result<Option<Message>> {
-    if event::poll(Duration::from_millis(100))? {
+    if event::poll(Duration::from_secs(1))? {
         if let Event::Key(key) = event::read()? {
             if key.kind == event::KeyEventKind::Press {
                 return Ok(handle_key(key));
