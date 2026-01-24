@@ -67,7 +67,7 @@ impl<'a> Widget for AppWidget<'a> {
             .title_bottom(
                 Line::from(format!(
                     " Last Updated: {} ",
-                    self.model.last_updated.strftime("%H:%M")
+                    self.model.last_updated.strftime("%H:%M:%S")
                 ))
                 .right_aligned(),
             );
