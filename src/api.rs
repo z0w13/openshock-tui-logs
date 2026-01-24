@@ -1,4 +1,6 @@
+use color_eyre::eyre::Result;
 use jiff::Timestamp;
+use reqwest::blocking::Client;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -34,4 +36,13 @@ pub(crate) struct ControlledBy {
     pub(crate) image: String,
     #[serde(rename = "customName")]
     pub(crate) custom_name: Option<String>,
+}
+
+pub(crate) fn shocker_logs(client: &Client) -> Result<LogResponse> {
+    let resp = client
+        .get("https://api.openshock.app/1/shockers/logs")
+        .send()?
+        .error_for_status()?;
+
+    Ok(resp.json()?)
 }

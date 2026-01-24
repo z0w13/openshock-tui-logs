@@ -1,11 +1,19 @@
-use std::fs;
+use std::{fs, time::Duration};
 
 use clap::Parser;
 use color_eyre::eyre::Result;
+use jiff::{Timestamp, Unit};
+use ratatui::crossterm::event::{self, Event, KeyCode};
 use reqwest::header;
 use serde::Deserialize;
 
+use crate::{
+    api::shocker_logs,
+    ui::{Message, RunningState, ViewModel, update, view},
+};
+
 mod api;
+mod ui;
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -35,13 +43,53 @@ fn main() -> Result<()> {
         .user_agent("OpenShock-TUI")
         .build()?;
 
-    let resp = client
-        .get("https://api.openshock.app/1/shockers/logs")
-        .send()?
-        .error_for_status()?;
+    let mut terminal = ratatui::init();
 
-    let log_data: api::LogResponse = resp.json()?;
-    println!("{:#?}", log_data);
+    let mut model = ViewModel {
+        log: Vec::new(),
+        last_updated: Timestamp::from_second(0)?,
+        running_state: RunningState::Running,
+    };
 
-    Ok(())
+    let app_result = loop {
+        terminal.draw(|f| view(&model, f))?;
+
+        if let Some(msg) = handle_event(&model)? {
+            model = update(model, msg);
+        }
+
+        if Timestamp::now()
+            .since(model.last_updated)?
+            .total(Unit::Second)?
+            > 1.0
+        {
+            model = update(model, Message::UpdateLog(shocker_logs(&client)?));
+        }
+
+        if model.running_state == RunningState::Done {
+            break Ok(());
+        }
+    };
+    ratatui::restore();
+
+    app_result
+}
+
+fn handle_key(key: event::KeyEvent) -> Option<Message> {
+    match key.code {
+        KeyCode::Char('q') => Some(Message::Quit),
+        _ => None,
+    }
+}
+
+fn handle_event(model: &ViewModel) -> Result<Option<Message>> {
+    if event::poll(Duration::from_millis(100))? {
+        if let Event::Key(key) = event::read()? {
+            if key.kind == event::KeyEventKind::Press {
+                return Ok(handle_key(key));
+            }
+        }
+    }
+
+    Ok(None)
 }
