@@ -87,6 +87,23 @@ impl<'a> LogWidget<'a> {
     }
 }
 
+fn entry_color(idx: usize, entry: &LogEntry) -> Color {
+    let float_seconds_since = Timestamp::now()
+        .since(entry.created_on)
+        .expect("couldn't calculate time since")
+        .total(Unit::Second)
+        .expect("couldn't get seconds");
+    if float_seconds_since <= 9.0 {
+        let bright_val = (6.0 * (10.0 - float_seconds_since)) as u8;
+        return Color::Rgb(bright_val, bright_val, bright_val);
+    }
+
+    match idx % 2 {
+        0 => Color::Rgb(10, 10, 10),
+        _ => Color::Reset,
+    }
+}
+
 impl<'a> Widget for LogWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let headers = ["Time", "Shocker", "Type", "Intensity", "Duration", "By"]
@@ -111,11 +128,6 @@ impl<'a> Widget for LogWidget<'a> {
             .take(area.height as usize)
             .enumerate()
             .map(|(i, entry)| {
-                let color = match i % 2 {
-                    0 => Color::Rgb(10, 10, 10),
-                    _ => Color::Reset,
-                };
-
                 [
                     Text::from(format_time_relative(entry.created_on)).right_aligned(),
                     Text::from(entry.shocker_name.as_str()),
@@ -129,7 +141,7 @@ impl<'a> Widget for LogWidget<'a> {
                 .into_iter()
                 .map(Cell::from)
                 .collect::<Row>()
-                .style(Style::new().bg(color))
+                .style(Style::new().bg(entry_color(i, entry)))
                 .height(1)
             });
 
