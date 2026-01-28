@@ -1,4 +1,4 @@
-use jiff::{Timestamp, Unit};
+use jiff::{RoundMode, Timestamp, TimestampRound, Unit};
 use ratatui::{
     Frame,
     buffer::Buffer,
@@ -151,6 +151,12 @@ impl<'a> Widget for LogWidget<'a> {
 
 fn format_time_relative(time: Timestamp) -> String {
     if let Ok(secs) = Timestamp::now()
+        .round(
+            TimestampRound::new()
+                .smallest(Unit::Second)
+                .mode(RoundMode::Floor),
+        )
+        .expect("error rounding timestamp")
         .since(time)
         .and_then(|span| span.total(Unit::Second))
         && secs < 10.0

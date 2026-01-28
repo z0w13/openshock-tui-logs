@@ -1,10 +1,14 @@
-use std::{fs, time::Duration};
+use std::{
+    env::remove_var,
+    fs,
+    time::{Duration, Instant},
+};
 
 use clap::Parser;
 use color_eyre::eyre::Result;
 use jiff::{Timestamp, Unit};
 use ratatui::crossterm::event::{self, Event, KeyCode};
-use reqwest::header;
+use reqwest::{blocking::Client, header};
 use serde::Deserialize;
 
 use crate::{
@@ -51,24 +55,24 @@ fn main() -> Result<()> {
         running_state: RunningState::Running,
     };
 
+    let update_rate = Duration::from_millis(50);
+    let mut last_update = Instant::now();
+
     let app_result = loop {
         terminal.draw(|f| view(&model, f))?;
 
-        if let Some(msg) = handle_event(&model)? {
+        if let Some(msg) = handle_event(&model, &client)? {
             model = update(model, msg);
-        }
-
-        if Timestamp::now()
-            .since(model.last_updated)?
-            .total(Unit::Second)?
-            > 5.0
-        {
-            model = update(model, Message::UpdateLog(shocker_logs(&client)?));
         }
 
         if model.running_state == RunningState::Done {
             break Ok(());
         }
+
+        if let Some(sleep_time) = update_rate.checked_sub(last_update.elapsed()) {
+            std::thread::sleep(sleep_time);
+        }
+        last_update = Instant::now();
     };
     ratatui::restore();
 
@@ -82,13 +86,21 @@ fn handle_key(key: event::KeyEvent) -> Option<Message> {
     }
 }
 
-fn handle_event(model: &ViewModel) -> Result<Option<Message>> {
-    if event::poll(Duration::from_secs(1))? {
+fn handle_event(model: &ViewModel, client: &Client) -> Result<Option<Message>> {
+    if event::poll(Duration::from_millis(25))? {
         if let Event::Key(key) = event::read()? {
             if key.kind == event::KeyEventKind::Press {
                 return Ok(handle_key(key));
             }
         }
+    }
+
+    if Timestamp::now()
+        .since(model.last_updated)?
+        .total(Unit::Second)?
+        > 5.0
+    {
+        return Ok(Some(Message::UpdateLog(shocker_logs(client)?)));
     }
 
     Ok(None)
